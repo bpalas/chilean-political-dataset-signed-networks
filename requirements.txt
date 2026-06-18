@@ -5,11 +5,20 @@ pandas>=2.0.0
 pyarrow>=15.0.0
 networkx>=3.0
 
-# For download
-boto3>=1.26.0  # optional: for S3 download
-
-# For stats/validation
+# Pipeline — corpus ingestion
+duckdb>=0.10.0
 python-dotenv>=1.0.0
+
+# Pipeline — entity resolution
+rapidfuzz>=3.0.0        # fuzzy matching para aliases
+splink>=3.9.0           # probabilistic ER (DuckDB backend)
+
+# Pipeline — topic modeling
+bertopic>=0.16.0        # opcional: modelado de tópicos
+sentence-transformers>=2.0.0  # embeddings para BERTopic
+
+# For download
+boto3>=1.26.0           # opcional: descarga desde S3
 
 # Testing
 pytest>=8.0.0
