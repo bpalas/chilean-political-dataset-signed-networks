@@ -1,0 +1,45 @@
+cff-version: 1.2.0
+title: "Chilean Political Dataset: Signed Networks (2013–2024)"
+authors:
+  - family-names: Palacios
+    given-names: Benjamin
+    affiliation: "Universidad Adolfo Ibáñez, Santiago, Chile"
+    orcid: "https://orcid.org/0000-0000-0000-0000"  # TODO: fill in ORCID
+version: 2.0.0
+date-released: 2024-06-15
+repository-code: "https://github.com/bpalas/chilean-political-dataset-signed-networks"
+url: "https://github.com/bpalas/chilean-political-dataset-signed-networks"
+doi: "10.5281/zenodo.11111111"  # TODO: fill in Zenodo DOI after upload
+abstract: |
+  2.1 million Spanish-language news articles from Chilean outlets (2013–2024)
+  with 914 hand-annotated signed political relations. Enables research into
+  temporal polarization dynamics, network realignment detection, and signed graph
+  algorithms benchmarking. Stratified across 25 semi-annual snapshots, 11.5 years.
+keywords:
+  - political networks
+  - signed graphs
+  - Spanish NLP
+  - temporal dynamics
+  - Chile
+  - dataset
+license: CC-BY-NC-4.0
+type: dataset
+
+references:
+  - type: article
+    authors:
+      - family-names: Lipset
+        given-names: Seymour M.
+      - family-names: Rokkan
+        given-names: Stein
+    title: "Party systems and voter alignments: Cross-national perspectives"
+    year: 1967
+  - type: article
+    authors:
+      - family-names: Bartolini
+        given-names: Stefano
+      - family-names: Mair
+        given-names: Peter
+    title: "Identity, competition, and electoral availability"
+    journal: International Political Science Review
+    year: 1990
