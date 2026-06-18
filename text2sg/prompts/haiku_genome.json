@@ -1,0 +1,94 @@
+{
+ "next_id": 2,
+ "entries": [
+  {
+   "id": 0,
+   "genome": {
+    "prompt_text": "Eres un extractor de relaciones políticas chilenas. Dado un artículo de prensa y una lista de actores presentes, extrae TODAS las interacciones explícitas entre ellos.\n\nUna interacción existe solo si el artículo reporta explícitamente una declaración, acción, voto o reunión. La mera co-ocurrencia NO es relación.\n\nPara cada interacción emite:\n- from_entity: nombre del AGENTE (quien realiza el acto)\n- to_entity: nombre del DESTINATARIO\n- act_type: uno de exactamente: endorses, accuses, allies_with, calls_on, distances_from, attacks, co_occurs, questions, negotiates_with, competes_with\n- polarity: positive | negative | neutral\n- issue: tema (ej: presidential_election, legal_cases, government_management, political_coalitions, fiscal_policy, public_security, human_rights)\n- evidence_quote: cita literal (substring exacto del artículo) que sustenta la relación\n\nRegla de dirección: \"Boric fue criticado por Matthei\" → from=Matthei, to=Boric.\nRegla de defensa: si A defiende a B frente a un crítico, es A→B con polarity=positive.\nSin cita literal verificable: no emitas la relación.\n\nResponde ÚNICAMENTE con JSON válido, sin markdown, sin explicaciones:\n{\"entities\": [{\"name\": \"...\", \"type\": \"roster_actor|institutional_actor|non_roster_actor\"}], \"relations\": [{\"from_entity\": \"...\", \"to_entity\": \"...\", \"act_type\": \"...\", \"polarity\": \"...\", \"issue\": \"...\", \"evidence_quote\": \"...\"}]}\n\nUsa el NOMBRE del actor tal como aparece en la lista proporcionada, nunca su código interno (U1, U2…).",
+    "few_shots": [],
+    "architecture": "given_entities",
+    "model": "gemini-2.5-flash",
+    "verify": false,
+    "validation": {
+     "require_evidence_substring": true,
+     "min_quote_len": 8,
+     "normalize_passive_direction": true,
+     "dedup": true,
+     "enforce_polarity_consistency": false,
+     "allowed_act_types": [
+      "endorses",
+      "accuses",
+      "allies_with",
+      "calls_on",
+      "distances_from",
+      "attacks",
+      "questions",
+      "negotiates_with",
+      "competes_with"
+     ],
+     "max_relations_per_article": 10,
+     "min_confidence": null,
+     "require_both_in_quote": false
+    },
+    "analysis": null
+   },
+   "P": 0.92,
+   "R": 0.624,
+   "parent_id": null,
+   "expansions": 1,
+   "preds_path": "results/synthetic/runs/v1_seed/preds_haiku.json",
+   "split": "train",
+   "dataset": "v1"
+  },
+  {
+   "id": 1,
+   "genome": {
+    "prompt_text": "Eres un extractor de relaciones políticas chilenas. Dado un artículo de prensa y una lista de actores presentes, extrae TODAS las interacciones explícitas entre ellos.\n\nUna interacción existe solo si el artículo reporta explícitamente una declaración, acción, voto o reunión. La mera co-ocurrencia NO es relación.\n\nPara cada interacción emite:\n- from_entity: nombre del AGENTE (quien realiza el acto)\n- to_entity: nombre del DESTINATARIO\n- act_type: uno de exactamente: endorses, accuses, allies_with, calls_on, distances_from, attacks, co_occurs, questions, negotiates_with, competes_with\n- polarity: positive | negative | neutral\n- issue: tema (ej: presidential_election, legal_cases, government_management, political_coalitions, fiscal_policy, public_security, human_rights)\n- evidence_quote: cita literal (substring exacto del artículo) que sustenta la relación\n\nRegla de dirección: \"Boric fue criticado por Matthei\" → from=Matthei, to=Boric.\nRegla de defensa: si A defiende a B frente a un crítico, es A→B con polarity=positive.\nSin cita literal verificable: no emitas la relación.\n\nResponde ÚNICAMENTE con JSON válido, sin markdown, sin explicaciones:\n{\"entities\": [{\"name\": \"...\", \"type\": \"roster_actor|institutional_actor|non_roster_actor\"}], \"relations\": [{\"from_entity\": \"...\", \"to_entity\": \"...\", \"act_type\": \"...\", \"polarity\": \"...\", \"issue\": \"...\", \"evidence_quote\": \"...\"}]}\n\nUsa el NOMBRE del actor tal como aparece en la lista proporcionada, nunca su código interno (U1, U2…).",
+    "few_shots": [],
+    "architecture": "given_entities",
+    "model": "gemini-2.5-flash",
+    "verify": false,
+    "validation": {
+     "require_evidence_substring": true,
+     "min_quote_len": 8,
+     "normalize_passive_direction": true,
+     "dedup": true,
+     "enforce_polarity_consistency": false,
+     "allowed_act_types": [
+      "endorses",
+      "accuses",
+      "allies_with",
+      "calls_on",
+      "distances_from",
+      "attacks",
+      "questions",
+      "negotiates_with",
+      "competes_with"
+     ],
+     "max_relations_per_article": 10,
+     "min_confidence": null,
+     "require_both_in_quote": false
+    },
+    "analysis": {
+     "emit_dossier": true,
+     "emit_alias_map": true,
+     "emit_role_hints": true,
+     "emit_direction_scaffold": true,
+     "emit_main_speaker": true,
+     "emit_comention_pairs": true,
+     "emit_act_type_canon": true,
+     "emit_domain_gate": true,
+     "role_window": 80,
+     "role_keywords": null
+    }
+   },
+   "P": 0.9476,
+   "R": 0.3857,
+   "parent_id": null,
+   "expansions": 0,
+   "preds_path": "results/synthetic/runs/v1_analysis/preds_haiku.json",
+   "split": "train",
+   "dataset": "v1"
+  }
+ ]
+}

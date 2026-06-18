@@ -136,6 +136,22 @@ train_relations = gold[gold['article_id'].isin(splits['train'])]
 python scripts/download.py --what gold
 ```
 
+### synthetic_v2/
+
+Synthetic gold for **extractor optimization and validation** (the evolutionary "rondas").
+287 synthetic Chilean news articles with 914 planted relations — 100%-controlled signal
+(every relation is known by construction, so any deviation is measurable extractor error).
+Migrated from `text2graph-evolve` (see [`docs/pipeline/03_evaluacion_optimizacion.md`](../docs/pipeline/03_evaluacion_optimizacion.md)).
+
+**Files:**
+- `articles.parquet` (287 rows) — `article_id, title, body, dominio, registro, medio, dureza, es_distractor, writer, difficulty`
+- `gold.parquet` (914 rows) — `article_id, u_from, u_to, act_type, polarity, is_reactive, issue, evidence_quote, source, n_inclusion_votes, dispute_type`
+- `split.json` — stratified split `{train: 207, test: 75, seed: 42}`
+- `unions.json` — actor-pair unions for undirected P/R scoring
+
+The champion extractor genome validated against this gold is
+[`text2sg/prompts/id15_champion.json`](../text2sg/prompts/id15_champion.json) (f0.5 0.928 / P 0.940 / R 0.884).
+
 ---
 
 ## Getting Started

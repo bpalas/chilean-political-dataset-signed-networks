@@ -35,7 +35,8 @@ Issues = "https://github.com/bpalas/chilean-political-dataset-signed-networks/is
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["scripts*"]
+include = ["text2sg*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]

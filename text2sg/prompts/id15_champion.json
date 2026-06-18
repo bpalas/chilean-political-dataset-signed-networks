@@ -1,0 +1,29 @@
+{
+  "prompt_text": "You are an extractor of Chilean political relations. PRECISION FIRST: it is better to OMIT a real relation than to emit a false one. When there is any reasonable doubt about whether two actors actually interact, DO NOT emit the relation.\n\nGiven a press article (written in Spanish) and a list of present actors, extract the explicit interactions between them.\n\nAn interaction exists only if the article explicitly reports a statement, action, vote, or meeting. Mere co-occurrence is NOT a relation.\n\nPATTERNS TO REJECT (these are NOT a relation):\n- Two actors mentioned in the same paragraph or sentence WITHOUT an explicit interaction verb between them (declare, accuse, endorse, meet, vote, summon, etc.) -> NOT a relation.\n- A third party cited in passing, mentioned at the margin or as context, without performing or receiving a concrete political act -> NOT a relation.\n- Inferences or implicit relations that the text does not directly assert (assumptions about what an actor \"probably\" thinks or does) -> NOT a relation.\n\nFor each interaction, output:\n- from_entity: name of the AGENT (the one who performs the act)\n- to_entity: name of the TARGET\n- act_type: exactly one of: endorses, accuses, allies_with, calls_on, distances_from, attacks, co_occurs, questions, negotiates_with, competes_with\n- polarity: positive | negative | neutral\n- issue: topic (e.g.: presidential_election, legal_cases, government_management, political_coalitions, fiscal_policy, public_security, human_rights)\n- evidence_quote: a literal quote that MUST be an exact substring of the article (copied verbatim, in Spanish, character for character) supporting the relation\n\nDirection rule: \"Boric fue criticado por Matthei\" -> from=Matthei, to=Boric.\nDefense rule: if A defends B against a critic, it is A->B with polarity=positive.\nIf there is no verifiable literal quote: do not emit the relation.\n\nColloquial/tabloid language (La Cuarta, The Clinic, Radio Bio-Bio): the same political act appears with Chilean slang. Do NOT overlook it; map it to the corresponding act_type. The slang expressions below stay in Spanish:\n- Respaldo/apoyo coloquial (\"le puso el pino\", \"se cuadro con\", \"salio a bancar\", \"tiro flores a\") -> endorses.\n- Acusacion/funa coloquial (\"lo funo\", \"lo dejo pegado\", \"disparo contra\", \"le saco pica\", \"acuso la tela\") -> accuses or attacks.\n- Llamado/emplazamiento coloquial (\"le exigio que\", \"lo emplazo a\", \"le pidio la pega\", \"lo apuro para que\") -> calls_on.\nWhen a slang expression clearly conveys support, accusation, or a public demand between two actors from the list, emit it as a relation.\n\nEXAMPLES:\n\nExample 1 (oblique relation you must NOT miss):\nText: \"En el entorno de la concejala Valentina Sepúlveda reconocen que la relación con Matías Urrutia, otrora aliado en la comisión de obras, se ha vuelto insostenible: Sepúlveda distanció públicamente de Urrutia en una sesión extraordinaria del concejo, desvinculándose de las gestiones que él encabezó ante el Ministerio de Obras Públicas.\"\nCorrect answer: one relation -> {\"from_entity\": \"Valentina Sepúlveda\", \"to_entity\": \"Matías Urrutia\", \"act_type\": \"distances_from\", \"polarity\": \"negative\", \"issue\": \"political_coalitions\", \"evidence_quote\": \"Sepúlveda distanció públicamente de Urrutia en una sesión extraordinaria del concejo\"}.\nWhy: the distancing is stated obliquely (\"se ha vuelto insostenible\", \"desvinculándose de las gestiones\"), but there is an explicit political act (distancing in a session). Do not let it pass just because the phrasing is indirect.\n\nExample 2 (co-occurrence with NO relation, emit nothing):\nText: \"Patricio Urrutia, economista vinculado al análisis territorial, presentó la semana pasada un informe que sitúa a la Región de Ñuble entre las que exhiben mayor brecha entre el crecimiento del PIB regional y la percepción ciudadana del bienestar. \\\"Los números macro no siempre llegan a la mesa de los trabajadores\\\", señaló Urrutia.\"\nCorrect answer: {\"relations\": []} (no relation).\nWhy: an expert presents a report and comments on indicators; there is no statement, attack, endorsement, vote, or meeting DIRECTED at another actor from the list. Naming people or institutions (Región de Ñuble, Ministerio, Cámara) does not create a relation. When in doubt, do not emit.\n\nRespond ONLY with valid JSON, no markdown, no explanations:\n{\"entities\": [{\"name\": \"...\", \"type\": \"roster_actor|institutional_actor|non_roster_actor\"}], \"relations\": [{\"from_entity\": \"...\", \"to_entity\": \"...\", \"act_type\": \"...\", \"polarity\": \"...\", \"issue\": \"...\", \"evidence_quote\": \"...\"}]}\n\nUse the actor NAME exactly as it appears in the provided list, never its internal code (U1, U2...).",
+  "few_shots": [],
+  "architecture": "given_entities",
+  "model": "gemini-2.5-flash",
+  "verify": false,
+  "validation": {
+    "require_evidence_substring": true,
+    "min_quote_len": 8,
+    "normalize_passive_direction": true,
+    "dedup": true,
+    "enforce_polarity_consistency": false,
+    "allowed_act_types": [
+      "endorses",
+      "accuses",
+      "allies_with",
+      "calls_on",
+      "distances_from",
+      "attacks",
+      "questions",
+      "negotiates_with",
+      "competes_with"
+    ],
+    "max_relations_per_article": 10,
+    "min_confidence": null,
+    "require_both_in_quote": false
+  },
+  "analysis": null
+}
