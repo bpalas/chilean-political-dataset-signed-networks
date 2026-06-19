@@ -39,7 +39,7 @@ def _done_ids() -> set[str]:
 
 
 def worker(wid: int, source: str, ids: list[str], threshold: float,
-           batch_size: int, shard_tag: str = "") -> None:
+           batch_size: int, shard_tag: str = "", fp16: bool = False) -> None:
     """Procesa un slice de article_ids. Escribe shards + state propios. `shard_tag`
     ('s0-', 's1-'…) separa el output entre máquinas para que no colisione al consolidar."""
     import pandas as pd  # import dentro del worker (spawn)
@@ -79,7 +79,8 @@ def worker(wid: int, source: str, ids: list[str], threshold: float,
 
     for start in range(0, len(rows), batch_size):
         chunk = [(aid, body, yr) for aid, body, yr in rows[start : start + batch_size]]
-        results = extract_batch(model, [(aid, body) for aid, body, _ in chunk], threshold=threshold)
+        results = extract_batch(model, [(aid, body) for aid, body, _ in chunk],
+                                threshold=threshold, fp16=fp16)
         for (aid, _b, yr), res in zip(chunk, results):
             if shard_year is not None and (yr != shard_year or len(buf) >= SHARD_SIZE):
                 flush()
@@ -109,6 +110,8 @@ def main() -> None:
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--threshold", type=float, default=0.4)
     ap.add_argument("--batch-size", type=int, default=16)
+    ap.add_argument("--fp16", action="store_true",
+                    help="inferencia half precision (1.6x, paridad de entidades ~0.99 vs fp32)")
     ap.add_argument("--shard", default=None,
                     help="k/N: esta máquina procesa la fracción k de N (ej. 0/2 y 1/2 en 2 laptops)")
     args = ap.parse_args()
@@ -140,7 +143,7 @@ def main() -> None:
     nw = max(1, args.workers)
     slices = [todo[i::nw] for i in range(nw)]  # round-robin: balancea carga por longitud
     ctx = mp.get_context("spawn")
-    procs = [ctx.Process(target=worker, args=(i, args.source, slices[i], args.threshold, args.batch_size, shard_tag))
+    procs = [ctx.Process(target=worker, args=(i, args.source, slices[i], args.threshold, args.batch_size, shard_tag, args.fp16))
              for i in range(nw) if slices[i]]
     t0 = time.time()
     for p in procs:
