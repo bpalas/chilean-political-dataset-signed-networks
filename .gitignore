@@ -34,3 +34,8 @@ Thumbs.db
 /temp_*.json
 /extract_relations*.py
 /extraction_result.json
+
+# más scratch de agentes
+/output.json
+/*_tmp.json
+/shard*_temp.json
