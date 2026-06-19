@@ -61,6 +61,7 @@ def resolve_mentions(
     alias_gazetteer: dict[str, str] | None = None,
     *,
     fuzzy_cutoff: int = 90,
+    min_token_len: int = 4,
 ) -> tuple[dict[str, str], list[dict]]:
     """Resuelve menciones → nodos canónicos.
 
@@ -72,51 +73,56 @@ def resolve_mentions(
     """
     gz = alias_gazetteer or {}
     nodes: list[dict] = []
-    norm2node: dict[str, str] = {}        # norm(surface) ya visto → node_id
+    norm2node: dict[str, int] = {}        # norm(surface) ya visto → índice de nodo
+    token_index: dict[str, set] = {}      # token (≥4) → {índices de nodo que lo contienen}
     assign: dict[str, str] = {}
 
-    def _new_node(canonical: str, ntype: str, surface: str) -> str:
-        nid = f"N{len(nodes):05d}"
-        nodes.append({"node_id": nid, "canonical": canonical, "type": ntype,
-                      "aliases": {surface}, "n": 0})
-        return nid
+    def _index(idx: int, ns: str) -> None:
+        for t in ns.split():
+            if len(t) >= min_token_len:
+                token_index.setdefault(t, set()).add(idx)
 
     for surf, typ, freq in sorted(mentions, key=lambda m: -m[2]):
         ns = normalize(surf)
         if not ns:
             continue
         # 1. exacto contra lo ya resuelto
-        nid = norm2node.get(ns)
-        # 2. fuzzy contra nodos del MISMO tipo (cross-type blocking), umbral conservador
-        if nid is None:
-            best_id, best_score = None, 0
-            for node in nodes:
-                # cross-type: solo comparar si tipos compatibles (o alguno desconocido)
+        idx = norm2node.get(ns)
+        # 2. fuzzy SOLO contra candidatos del bloque (nodos que comparten un token ≥4),
+        #    mismo tipo (cross-type blocking) y, en personas, apellido coincidente.
+        if idx is None:
+            cand: set = set()
+            for t in ns.split():
+                if len(t) >= min_token_len:
+                    cand |= token_index.get(t, set())
+            best, bs = None, 0
+            for ci in cand:
+                node = nodes[ci]
                 if node["type"] != typ and "unknown" not in (node["type"], typ):
                     continue
                 is_person = "person" in (node["type"], typ)
-                for a in node["aliases"]:
-                    na = normalize(a)
-                    s = _fuzzy(ns, na)
-                    # personas: además del score global, el apellido debe coincidir fuerte
-                    if s > best_score and (not is_person or _surname_ok(ns, na)):
-                        best_score, best_id = s, node["node_id"]
-            if best_score >= fuzzy_cutoff:
-                nid = best_id
-        # 3. nodo nuevo (canonical = el del gazetteer si lo conoce, si no el surface)
-        if nid is None:
-            nid = _new_node(gz.get(ns, surf), typ, surf)
-        # registrar
-        assign[surf] = nid
-        norm2node[ns] = nid
-        node = next(n for n in nodes if n["node_id"] == nid)
+                for a in node["_norm"]:
+                    s = _fuzzy(ns, a)
+                    if s > bs and (not is_person or _surname_ok(ns, a)):
+                        bs, best = s, ci
+            if bs >= fuzzy_cutoff:
+                idx = best
+        # 3. nodo nuevo
+        if idx is None:
+            idx = len(nodes)
+            nodes.append({"node_id": f"N{idx:05d}", "canonical": gz.get(ns, surf),
+                          "type": typ, "aliases": {surf}, "_norm": {ns}, "n": 0})
+        node = nodes[idx]
         node["aliases"].add(surf)
+        node["_norm"].add(ns)
         node["n"] += freq
-        # promover canonical conocido si el gazetteer lo tiene y el actual es un alias suelto
         if ns in gz and node["canonical"] == surf:
             node["canonical"] = gz[ns]
+        _index(idx, ns)
+        norm2node[ns] = idx
+        assign[surf] = node["node_id"]
 
-    # aliases set → list ordenada (para serializar)
     for n in nodes:
         n["aliases"] = sorted(n["aliases"])
+        del n["_norm"]
     return assign, nodes

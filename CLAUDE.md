@@ -20,9 +20,12 @@ NER (GLiNER) → ER (unir aliases) → RE `given_entities` (id15, flash-lite) �
 ## Estado actual (2026-06-19)
 - F1 Ingesta ✅ — muestra 80k en `data/processed/samples/political_2019_2022_80k.parquet`
 - ① NER ✅ **COMPLETO (80.000 art, 909.811 menciones, 11.4/art, $0)** vía `scripts/run_ner_gliner.py`. Tipos: person 51% / institution 26% / party 13% / org 6% / coalition 3% / movement 1%. Salida: `data/processed/ner/gliner/`.
-- ② ER 🔄 **muestra hecha** (`scripts/run_er.py` sobre 200 art → 415 nodos, guardas anti-sobre-fusión). **Falta escala**: 88.230 surface forms normalizados → necesita blocking (ver abajo).
-- ③ RE 🔄 **muestra 200** (581 relaciones, `data/processed/re/relations.parquet`). Test gold en curso (`scripts/score_gold.py`). **Prod = Batch API** (subagentes no escalan: 80k ≈ 29 días).
-- ④ Graph 🔄 embrionario: `data/processed/er/{nodes,edges}.parquet` (de la muestra).
+- ② ER ✅ **a escala** (`text2sg/er_resolve.py` con blocking por token + guardas): 96.990 surface forms → 79.643 nodos en ~34s. `scripts/run_er.py` (muestra) / `resolution_80k.json` (escala).
+- ③ RE 🔄 **muestra 200** (581 rel) + **test gold**: detección f0.5 0.892 (undirected), labeling +act_type 0.743. **Prod = Batch API** (subagentes no escalan: 80k ≈ 29 días).
+- ④ Graph ✅ **poblado**: `graph.duckdb` vía `scripts/build_graph.py` — 80k articles, 79.643 nodos, 88.230 aliases, 909.811 mentions, 562 edges. Red signada queryable (Piñera deg 77 +24/−39). Aristas solo de la muestra 200 (RE de prod pendiente).
+
+## Pendiente de calidad (curación)
+- Dato sucio del proto-gazetteer: un nodo "Congreso" quedó con canonical "Senado". Lo corrige la **curación Sonnet del top-grado** (`degree` pre-computado en `nodes`). El gazetteer de aliases rico aún usa el proto de 60 art sintéticos → enriquecer con menciones reales.
 
 ## NER decisión (F3, 2026-06-18)
 GLiNER local (`urchade/gliner_multi-v2.1`, threshold 0.4) para el volumen ($0, determinista). Haiku NO para el full (solo zona gris). spaCy descartado (no distingue party/coalition/movement). Eval: `scripts/eval_ner_gliner_vs_haiku.py`.
