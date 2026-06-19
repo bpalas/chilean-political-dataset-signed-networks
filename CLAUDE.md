@@ -30,6 +30,12 @@ NER (GLiNER) → ER (unir aliases) → RE `given_entities` (id15, flash-lite) �
 ## NER decisión (F3, 2026-06-18)
 GLiNER local (`urchade/gliner_multi-v2.1`, threshold 0.4) para el volumen ($0, determinista). Haiku NO para el full (solo zona gris). spaCy descartado (no distingue party/coalition/movement). Eval: `scripts/eval_ner_gliner_vs_haiku.py`.
 
+## NER rendimiento — medido en RTX 4070 8GB (2026-06-19)
+Profiling (`scripts/profile_ner.py`) demostró que NER es **kernel-launch-bound**, NO CPU-tokenización ni GPU-compute: VRAM plana en 2.38GB, throughput plano a cualquier batch, 68% del tiempo en un sync CPU↔GPU dentro de GLiNER. **Un cambio de lenguaje (Go/Rust/C++) no toca el cuello** — el cómputo caliente ya es CUDA/Rust.
+- **fp16 es la palanca real: ~1.7x** (8.8→13.2 art/s single-proc), paridad de entidades 0.99 vs fp32 (`scripts/profile_ner_opt.py`). Usar `--fp16` en prod; default sigue fp32 (los 80k ya extraídos en fp32, no mezclar). bf16 descartado (paridad 0.93).
+- **MP ya NO ayuda** (`scripts/bench_ner_mp.py`): con el batching de `extract_batch` un proceso satura la GPU; 2 workers fp32 son MÁS lentos que 1, 3+ revientan los 8GB. Default `--workers` bajado 4→2. (El supuesto viejo "GPU 35x sobrada → paraleliza en CPU" quedó **falso** tras el fix de batching.)
+- **ONNX descartado: 16x más LENTO** (`scripts/export_ner_onnx.py`). El loader ONNX de GLiNER no respeta `providers=[CUDA]` (corre en CPU) y el head de spans es un LSTM con shapes variables (peor caso ONNX-CUDA). Export correcto (Jaccard 0.99) pero inservible.
+
 ## ER a escala — dimensionamiento (2026-06-19)
 88.230 surface forms normalizados; **63% aparecen 1 sola vez** (cola larga). El clustering in-memory (`er_resolve.py`) NO escala a 88k sin **blocking** (por apellido/token × tipo). Núcleo del grafo = actores frecuentes (≥3 menciones). Siglas (UDI, DC, RN, PS) requieren diccionario curado sigla↔nombre (no fuzzy). Guardas ya implementadas: cross-type, apellido para personas, umbral 90.
 
