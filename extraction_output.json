@@ -1,0 +1,33 @@
+{
+  "results": [
+    {
+      "idx": 45,
+      "relations": []
+    },
+    {
+      "idx": 46,
+      "relations": []
+    },
+    {
+      "idx": 47,
+      "relations": []
+    },
+    {
+      "idx": 48,
+      "relations": []
+    },
+    {
+      "idx": 49,
+      "relations": [
+        {
+          "from_entity": "Donald Trump",
+          "to_entity": "Christopher Landau",
+          "act_type": "competes_with",
+          "polarity": "negative",
+          "issue": "diplomatic_relations",
+          "evidence_quote": "Trump rivaliza con Landau por quién define la política exterior estadounidense"
+        }
+      ]
+    }
+  ]
+}

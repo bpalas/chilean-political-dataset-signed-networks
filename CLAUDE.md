@@ -17,15 +17,18 @@ NER (GLiNER) → ER (unir aliases) → RE `given_entities` (id15, flash-lite) �
 - `.claude/agents/ner-extractor.md` — agent Haiku para descubrimiento de gazetteer + zona gris (coalition/movement), NO para el 80k full
 - `workflows/haiku_ner_discovery.workflow.js` — NER con Haiku (sesión, sin API key)
 
-## Estado actual (2026-06-18)
+## Estado actual (2026-06-19)
 - F1 Ingesta ✅ — muestra 80k en `data/processed/samples/political_2019_2022_80k.parquet`
-- ① NER 🔄 **F3 cerrado: GLiNER gana** (head-to-head vs Haiku: igual cobertura, 0 ruido geográfico, mejor en person/party/coalition). Escalando a 80k vía `scripts/run_ner_gliner_80k.py` (checkpointed → `data/processed/ner/gliner/`). Config: `urchade/gliner_multi-v2.1`, threshold 0.4.
-- ② ER ❌ código listo, gazetteer semilla 300, sin correr
-- ③ RE (id15) ❌ genoma migrado, falta batch runner (`batch_gemini.py`, no está)
-- ④ Graph ❌ `graph.duckdb` no existe
+- ① NER ✅ **COMPLETO (80.000 art, 909.811 menciones, 11.4/art, $0)** vía `scripts/run_ner_gliner.py`. Tipos: person 51% / institution 26% / party 13% / org 6% / coalition 3% / movement 1%. Salida: `data/processed/ner/gliner/`.
+- ② ER 🔄 **muestra hecha** (`scripts/run_er.py` sobre 200 art → 415 nodos, guardas anti-sobre-fusión). **Falta escala**: 88.230 surface forms normalizados → necesita blocking (ver abajo).
+- ③ RE 🔄 **muestra 200** (581 relaciones, `data/processed/re/relations.parquet`). Test gold en curso (`scripts/score_gold.py`). **Prod = Batch API** (subagentes no escalan: 80k ≈ 29 días).
+- ④ Graph 🔄 embrionario: `data/processed/er/{nodes,edges}.parquet` (de la muestra).
 
 ## NER decisión (F3, 2026-06-18)
-GLiNER local para los 80k ($0, determinista). Haiku NO para el full (solo zona gris). spaCy descartado (no distingue party/coalition/movement). Evaluación: `scripts/eval_ner_gliner_vs_haiku.py`.
+GLiNER local (`urchade/gliner_multi-v2.1`, threshold 0.4) para el volumen ($0, determinista). Haiku NO para el full (solo zona gris). spaCy descartado (no distingue party/coalition/movement). Eval: `scripts/eval_ner_gliner_vs_haiku.py`.
+
+## ER a escala — dimensionamiento (2026-06-19)
+88.230 surface forms normalizados; **63% aparecen 1 sola vez** (cola larga). El clustering in-memory (`er_resolve.py`) NO escala a 88k sin **blocking** (por apellido/token × tipo). Núcleo del grafo = actores frecuentes (≥3 menciones). Siglas (UDI, DC, RN, PS) requieren diccionario curado sigla↔nombre (no fuzzy). Guardas ya implementadas: cross-type, apellido para personas, umbral 90.
 
 ## Datos
 - Gold de validación: `data/gold/synthetic_v2/` (287 art / 914 rel / split 207+75) — gitignored
