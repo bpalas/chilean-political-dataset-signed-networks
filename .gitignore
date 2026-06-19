@@ -26,3 +26,11 @@ Thumbs.db
 .env
 .env.local
 *.log
+
+# Scratch de subagentes (los workflows Haiku escriben temporales al procesar)
+/temp/
+/article_*.txt
+/article_*.json
+/temp_*.json
+/extract_relations*.py
+/extraction_result.json
