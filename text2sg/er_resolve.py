@@ -14,9 +14,30 @@ Funciones puras (testeables): resolve_mentions toma listas y devuelve asignació
 """
 from __future__ import annotations
 
+import re
 from typing import Optional
 
 from text2sg.er import normalize
+
+# Cargos chilenos que preceden a un nombre propio ("senador Chahuán" → "Chahuán").
+# Solo se despojan para personas y solo si queda un nombre de ≥2 tokens (anti-falsos).
+_ROLE = re.compile(
+    r"^(ex[\s-]?)?(ex\s+)?("
+    r"senador[ae]?s?|diputad[oa]s?|ministr[oa]s?|subsecretari[oa]s?|"
+    r"alcald[ea]s?a?|concejal[ae]?s?|gobernador[ae]?s?|intendent[ae]s?|seremis?|"
+    r"president[ae]s?|vicepresident[ae]s?|canciller(es)?|contralor[ae]?s?|fiscal(es)?|"
+    r"candidat[oa]s?|excandidat[oa]s?|general(es)?|don|dona|"
+    r"el|la|los|las"
+    r")\s+", re.IGNORECASE)
+
+
+def strip_role(ns: str) -> str:
+    """Quita prefijos de cargo repetidamente de un nombre normalizado."""
+    prev = None
+    while prev != ns:
+        prev = ns
+        ns = _ROLE.sub("", ns).strip()
+    return ns
 
 
 def build_alias_gazetteer(seed_names: list[str], proto_entries: list[dict]) -> dict[str, str]:
@@ -62,6 +83,7 @@ def resolve_mentions(
     *,
     fuzzy_cutoff: int = 90,
     min_token_len: int = 4,
+    strip_roles: bool = True,
 ) -> tuple[dict[str, str], list[dict]]:
     """Resuelve menciones → nodos canónicos.
 
@@ -86,6 +108,12 @@ def resolve_mentions(
         ns = normalize(surf)
         if not ns:
             continue
+        # Role-stripping para personas: "senador francisco chahuan" → "francisco chahuan",
+        # solo si queda un nombre de ≥2 tokens (evita colapsar roles sueltos).
+        if strip_roles and "person" in (typ,):
+            st = strip_role(ns)
+            if len(st.split()) >= 2:
+                ns = st
         # 1. exacto contra lo ya resuelto
         idx = norm2node.get(ns)
         # 2. fuzzy SOLO contra candidatos del bloque (nodos que comparten un token ≥4),
