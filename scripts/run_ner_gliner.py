@@ -1,15 +1,19 @@
 """Pasada 1 a escala — GLiNER NER con multiprocessing (GPU compartida).
 
-El cuello de GLiNER es la tokenización en CPU (single-thread), no la GPU (que queda
-~35x sobrada). Por eso paralelizamos en CPU: N workers tokenizan en paralelo y alimentan
-la misma GPU. Cada worker carga el modelo una vez, procesa su slice de artículos y
+Cada worker carga el modelo una vez, procesa su slice de artículos y
 escribe SUS PROPIOS shards (`part-w{wid}-*.parquet`) y state (`state-w{wid}.json`) →
 sin locks ni races. Resume: al reiniciar se unen todos los state-w*.json y se omiten.
 
-Reusable en todas las escalas vía --source:
-    HF_HUB_DISABLE_SYMLINKS=1 python scripts/run_ner_gliner.py --workers 4            # 80k (default)
-    HF_HUB_DISABLE_SYMLINKS=1 python scripts/run_ner_gliner.py --source <383k.parquet> --workers 6
-    HF_HUB_DISABLE_SYMLINKS=1 python scripts/run_ner_gliner.py --limit 500 --workers 3 # smoke
+DIMENSIONAMIENTO (medido en RTX 4070 8GB, scripts/bench_ner_mp.py, 2026-06-19):
+Con el batching de extract_batch, UN proceso ya satura la GPU (100% util). El MP dejó
+de aportar: 2 workers fp32 (7.4 art/s) son MAS lentos que 1 (8.8) por contencion, y 3+
+revientan los 8GB (OOM/cuelgue). La palanca es --fp16 (~1.5x): 1 worker fp16 = 13.2 art/s.
+En GPUs >16GB o infra-utilizadas subir --workers rinde; en 8GB, queda en 1-2. Default 2.
+
+Reusable en todas las escalas via --source:
+    HF_HUB_DISABLE_SYMLINKS=1 python scripts/run_ner_gliner.py --fp16                        # 80k
+    HF_HUB_DISABLE_SYMLINKS=1 python scripts/run_ner_gliner.py --source <383k.parquet> --fp16
+    HF_HUB_DISABLE_SYMLINKS=1 python scripts/run_ner_gliner.py --limit 500 --fp16            # smoke
 
 Salida: data/processed/ner/gliner/year=YYYY/part-w{wid}-NNNN.parquet  +  state-w*.json
 """
@@ -106,7 +110,8 @@ def main() -> None:
 
     ap = argparse.ArgumentParser()
     ap.add_argument("--source", default=str(DEFAULT_SOURCE))
-    ap.add_argument("--workers", type=int, default=4)
+    ap.add_argument("--workers", type=int, default=2,
+                    help="en 8GB un proceso ya satura la GPU; >2 contiende/OOM (ver docstring)")
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--threshold", type=float, default=0.4)
     ap.add_argument("--batch-size", type=int, default=16)
