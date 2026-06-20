@@ -33,7 +33,7 @@ una relación `(actor → acto → actor, polaridad, tema)` extraída de noticia
 | archivo | filas | qué es |
 |---|---|---|
 | `nodes.parquet` | ~78.7k | actores canónicos (person/party/institution/coalition/movement/org). `degree`, `n_mentions`, `curated`. |
-| `edges.parquet` | ~433k | relaciones signadas: `from_node_id`, `to_node_id`, `act_type`, `polarity` (positive/negative/neutral), `issue`, `evidence_quote`, `publish_date`, `period`. |
+| `edges.parquet` | ~433k | relaciones signadas: `from_node_id`, `to_node_id`, `act_type`, `polarity` (positive/negative/neutral), **`sign`** (=polaridad numérica: +1/-1/0), `issue`, `evidence_quote`, `publish_date`, `period`. |
 | `aliases.parquet` | ~88k | formas de superficie por nodo (`surface_form`, `surface_norm`). |
 | `mentions.parquet` | ~910k | menciones NER por artículo → nodo. |
 | `articles.parquet` | ~80k | artículos (id, título, body, fecha). |
@@ -57,7 +57,12 @@ top = con.execute('''
 O con pandas: `pd.read_parquet('graph_parquet/edges.parquet')`.
 
 ## Notas
-- `polarity` es la columna de signo (positive=+1, negative=-1) para la red signada.
+- **`sign`** (=polaridad de Gemini: positive=+1, negative=-1, neutral=0) es el signo de la
+  red signada, a nivel arista. Para díadas usar la media de `sign` ∈ [-1,1].
+- ⚠️ **Nodos de ROL temporales** ("Gobierno de Chile", "Oposición", "Oficialismo",
+  "Presidente", "Ejecutivo") cambian de referente en el cambio de mando (mar 2022,
+  Piñera→Boric). **Analizá esas díadas POR PERÍODO** (`period` / `edges_by_period`), no
+  agregadas sobre toda la ventana. Actores estables (personas, partidos) agregan bien.
 - Filtrar `nodes.curated = TRUE` para el núcleo curado del top-grado.
 - `period` = año (string) derivado de `publish_date`.
 """

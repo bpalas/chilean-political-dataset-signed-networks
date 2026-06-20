@@ -57,6 +57,24 @@ PC de China→PC de Chile + 12 genéricos marcados); re-Capa 1 = 1 dedup. Final:
 Dato sucio histórico (lo resuelve el flujo): "Congreso" con canonical "Senado"; "Partido
 Comunista de China" deg 5.990 = casi seguro el PC **de Chile** → capa 3.
 
+## Red signada — análisis (2026-06-20)
+- **El signo ES la polaridad de Gemini** (la extrajo el RE). Columna `sign` = polaridad
+  numérica: `positive=+1, negative=-1, neutral=0` (`scripts/signed_analysis.py --add-column`).
+  Distribución: 174k− / 125k· / 135k+. NO derivar el signo de act_type (rodeo descartado:
+  daba ~lo mismo). `polarity` (categórica) sigue siendo el campo crudo.
+- **Dos representaciones**: arista categórica `{-1,0,+1}`; díada continua `[-1,1]` (media del
+  signo entre dos actores) para clustering/balance.
+- **Validación** (`scripts/validate_network.py`, `signed_analysis.py`): las comunidades
+  (Louvain sobre aliados) reproducen las coaliciones reales (DC/ex-Concertación, gabinete,
+  Chile Vamos, Apruebo Dignidad, PC, **republicanos/Kast separados**). Balance estructural:
+  **89% del peso negativo entre bloques** → red balanceada. La estructura es confiable.
+- ⚠️ **NODOS DE ROL TEMPORALES**: "Gobierno de Chile", "Oposición", "Oficialismo",
+  "Presidente", "Ejecutivo" **cambian de referente en el cambio de mando (mar 2022,
+  Piñera→Boric)**. Agregar sus díadas sobre toda la ventana mezcla 2 actores (ej: Boric↔Gobierno
+  da +245 en 2022 [su gobierno] vs −76 en 2021 [Piñera]). → **analizar POR PERÍODO** (columna
+  `period` / vista `edges_by_period`) o dividir esos nodos por administración. Actores estables
+  (personas, partidos) agregan bien sobre toda la ventana (Kast↔Boric: − en todos los años).
+
 ## NER decisión (F3, 2026-06-18)
 GLiNER local (`urchade/gliner_multi-v2.1`, threshold 0.4) para el volumen ($0, determinista). Haiku NO para el full (solo zona gris). spaCy descartado (no distingue party/coalition/movement). Eval: `scripts/eval_ner_gliner_vs_haiku.py`.
 
