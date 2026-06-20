@@ -37,7 +37,7 @@ JSONL = GEN / "input.jsonl"
 ACTOR_TYPES = {"person", "party", "institution", "coalition", "movement", "org"}
 
 
-def prepare(limit: int | None) -> None:
+def prepare(limit: int | None, genome_path: str | None = None) -> None:
     GEN.mkdir(parents=True, exist_ok=True)
     res = json.loads((D / "er/resolution_80k.json").read_text(encoding="utf-8"))
     assign = res["assign"]
@@ -47,9 +47,13 @@ def prepare(limit: int | None) -> None:
 
     items, n_skip = [], 0
     for s in glob.glob(str(D / "ner/gliner/year=*/part-*.parquet")):
-        for aid, ents in zip(*[pd.read_parquet(s)[c] for c in ("article_id", "entities")]):
+        try:  # robusto a shards a medio escribir (el NER full corre en paralelo)
+            cols = [pd.read_parquet(s)[c] for c in ("article_id", "entities")]
+        except Exception:
+            continue
+        for aid, ents in zip(*cols):
             body = body_of.get(aid)
-            if not body:
+            if not body:  # solo los 80k tienen body → los shards del 402k se saltan
                 continue
             actors = []
             for e in json.loads(ents):
@@ -66,7 +70,9 @@ def prepare(limit: int | None) -> None:
         if limit and len(items) >= limit:
             break
 
-    genome = load_genome()
+    genome = load_genome(genome_path) if genome_path else load_genome()
+    print(f"genoma: {Path(genome_path).name if genome_path else 'id15_champion.json'} "
+          f"| model {genome['model']}", flush=True)
     build_jsonl(items, genome, JSONL)
     # estimación de costo (tokens ≈ chars/4)
     in_tok = sum(len(genome["prompt_text"]) + len(b[:6000]) + len(", ".join(a)) for _, b, a in items) / 4
@@ -79,11 +85,12 @@ def prepare(limit: int | None) -> None:
           f"(flash-lite sería ~${in_tok/1e6*0.05 + out_tok/1e6*0.20:.0f})")
 
 
-def do_submit(model: str | None) -> None:
+def do_submit(model: str | None, genome_path: str | None = None) -> None:
     cl = make_client()
-    genome = load_genome()
+    genome = load_genome(genome_path) if genome_path else load_genome()
     if model:
         genome["model"] = model
+    print(f"submit con model {genome['model']}", flush=True)
     name = submit(cl, JSONL, genome, display="re-80k")
     (GEN / "batch_name.txt").write_text(name, encoding="utf-8")
     print(f"batch creado: {name}\n(guardado en {GEN/'batch_name.txt'})")
@@ -125,11 +132,14 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("prepare"); p.add_argument("--limit", type=int, default=None)
+    p.add_argument("--genome", default=None, help="ruta a genoma (ej. text2sg/prompts/gemini_champion_v2.json)")
     s = sub.add_parser("submit"); s.add_argument("--model", default=None, help="override (ej. gemini-2.5-flash-lite)")
+    s.add_argument("--genome", default=None, help="ruta a genoma (el model sale del genoma si no hay --model)")
     pl = sub.add_parser("poll"); pl.add_argument("--name", default=None)
     fe = sub.add_parser("fetch"); fe.add_argument("--name", default=None)
     args = ap.parse_args()
-    {"prepare": lambda: prepare(args.limit), "submit": lambda: do_submit(args.model),
+    {"prepare": lambda: prepare(args.limit, args.genome),
+     "submit": lambda: do_submit(args.model, args.genome),
      "poll": lambda: do_poll(args.name), "fetch": lambda: do_fetch(args.name)}[args.cmd]()
 
 

@@ -53,10 +53,12 @@ def make_client(api_key: str | None = None):
     return genai.Client(api_key=api_key or load_api_key())
 
 
-# Tope de tokens de salida: protege el presupuesto contra respuestas desbocadas.
-# El output típico (relaciones JSON) ~600 tok; 2048 da 3x de holgura sin truncar
-# artículos densos, pero corta un runaway antes de que infle el costo.
-MAX_OUTPUT_TOKENS = 2048
+# Tope de tokens de salida: backstop contra respuestas desbocadas (runaway → costo).
+# Medido: output típico ~600 tok, cola densa hasta ~3300 (25 relaciones en 1 art).
+# 8192 cubre la cola con holgura SIN truncar JSON legítimo (un cap bajo corta el JSON
+# a media frase → json.loads falla → se pierde el artículo en el fetch). No cambia el
+# costo esperado: la respuesta para cuando termina, el tope solo frena un loop.
+MAX_OUTPUT_TOKENS = 8192
 
 
 def extract_sync(cl, body: str, actors: list[str], genome: dict,
