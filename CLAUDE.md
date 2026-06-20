@@ -45,6 +45,14 @@ LLM (Sonnet) solo el grey-zone semántico. Reproducible para re-correr al escala
 5. **Capa 4 — apply** — `scripts/curate_apply.py`: aplica merges/updates determinísticamente
    (maneja UNIQUE en aliases/edges, guarda anti-sobrefusión: bloquea 2 canonicals largos con
    `token_sort_ratio<60`). Recomputa `n_mentions` y `degree`.
+6. **Re-Capa 1 (dedup post-Sonnet)** — tras aplicar Capa 3, RE-CORRER la Capa 1: los renombres
+   de Sonnet ("PC de China"→"PC de Chile") crean duplicados EXACTOS con nodos ya existentes
+   que el pase determinista limpia. El flujo es iterativo: 1 → 3 → 1.
+
+[Aplicado 2026-06-20 sobre el grafo 80k: Capa 1 = 101 merges; Capa 3 (Sonnet, 7 merges
+semánticos: La Moneda→Gobierno, Fiscalía→Ministerio Público, Bachelet→Michelle Bachelet… +
+PC de China→PC de Chile + 12 genéricos marcados); re-Capa 1 = 1 dedup. Final: 78.682 nodos
+(0 duplicados), 118 curados. Top: Gobierno 44k, Piñera 34k, Boric 32k.]
 
 Dato sucio histórico (lo resuelve el flujo): "Congreso" con canonical "Senado"; "Partido
 Comunista de China" deg 5.990 = casi seguro el PC **de Chile** → capa 3.
