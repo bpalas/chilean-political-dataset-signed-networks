@@ -53,7 +53,14 @@ def make_client(api_key: str | None = None):
     return genai.Client(api_key=api_key or load_api_key())
 
 
-def extract_sync(cl, body: str, actors: list[str], genome: dict) -> str:
+# Tope de tokens de salida: protege el presupuesto contra respuestas desbocadas.
+# El output típico (relaciones JSON) ~600 tok; 2048 da 3x de holgura sin truncar
+# artículos densos, pero corta un runaway antes de que infle el costo.
+MAX_OUTPUT_TOKENS = 2048
+
+
+def extract_sync(cl, body: str, actors: list[str], genome: dict,
+                 max_output_tokens: int = MAX_OUTPUT_TOKENS) -> str:
     """Una llamada síncrona. Devuelve el texto (JSON) crudo del modelo."""
     from google.genai import types
     resp = cl.models.generate_content(
@@ -63,14 +70,19 @@ def extract_sync(cl, body: str, actors: list[str], genome: dict) -> str:
             system_instruction=genome["prompt_text"],
             response_mime_type="application/json",
             temperature=0,
+            max_output_tokens=max_output_tokens,
         ),
     )
     return resp.text
 
 
 # ── Batch API ───────────────────────────────────────────────────────────────
-def build_jsonl(items: list[tuple[str, str, list[str]]], genome: dict, path: Path | str) -> Path:
-    """items: [(article_id, body, actors)]. Escribe el JSONL de entrada del batch."""
+def build_jsonl(items: list[tuple[str, str, list[str]]], genome: dict, path: Path | str,
+                max_output_tokens: int = MAX_OUTPUT_TOKENS) -> Path:
+    """items: [(article_id, body, actors)]. Escribe el JSONL de entrada del batch.
+
+    `max_output_tokens` topa la salida por request → protege el presupuesto contra
+    respuestas desbocadas (clave en batches grandes; ver MAX_OUTPUT_TOKENS)."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
@@ -80,7 +92,8 @@ def build_jsonl(items: list[tuple[str, str, list[str]]], genome: dict, path: Pat
                 "request": {
                     "contents": [{"role": "user", "parts": [{"text": build_user_prompt(body, actors)}]}],
                     "system_instruction": {"parts": [{"text": genome["prompt_text"]}]},
-                    "generation_config": {"response_mime_type": "application/json", "temperature": 0},
+                    "generation_config": {"response_mime_type": "application/json", "temperature": 0,
+                                          "max_output_tokens": max_output_tokens},
                 },
             }
             f.write(json.dumps(req, ensure_ascii=False) + "\n")
