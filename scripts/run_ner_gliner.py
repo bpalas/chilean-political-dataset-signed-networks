@@ -64,7 +64,10 @@ def worker(wid: int, source: str, ids: list[str], threshold: float,
     done: set[str] = set(json.loads(state_path.read_text(encoding="utf-8"))) if state_path.exists() else set()
     buf: list[dict] = []
     shard_year = None
-    part = 0
+    # Resume seguro: continuar la numeración de shards para NO sobrescribir los de un
+    # run previo (el 80k escribió part-w0-00000..). Sin esto, part=0 pisaría datos.
+    existing = list(OUT.glob(f"year=*/part-{shard_tag}w{wid}-*.parquet"))
+    part = (max(int(p.stem.rsplit("-", 1)[1]) for p in existing) + 1) if existing else 0
     t0 = time.time()
     n = 0
     last_save = 0
