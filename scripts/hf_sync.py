@@ -35,6 +35,7 @@ def main() -> None:
     p = sub.add_parser("push", help="subir carpeta/archivo a un dataset HF")
     p.add_argument("--repo", required=True, help="usuario/nombre-del-dataset")
     p.add_argument("--path", required=True, help="archivo o carpeta local a subir")
+    p.add_argument("--in-repo", default=None, help="subcarpeta destino dentro del dataset (ej. graph_parquet)")
     p.add_argument("--public", action="store_true", help="dataset público (default: privado)")
     q = sub.add_parser("pull", help="bajar un dataset HF")
     q.add_argument("--repo", required=True)
@@ -48,9 +49,11 @@ def main() -> None:
         path = Path(args.path)
         api = HfApi()
         if path.is_dir():
-            api.upload_folder(folder_path=str(path), repo_id=args.repo, repo_type="dataset")
+            api.upload_folder(folder_path=str(path), repo_id=args.repo, repo_type="dataset",
+                              path_in_repo=args.in_repo or ".")
         else:
-            api.upload_file(path_or_fileobj=str(path), path_in_repo=path.name,
+            dest = f"{args.in_repo}/{path.name}" if args.in_repo else path.name
+            api.upload_file(path_or_fileobj=str(path), path_in_repo=dest,
                             repo_id=args.repo, repo_type="dataset")
         print(f"Subido {args.path} → {args.repo} ({'público' if args.public else 'privado'})")
     else:
