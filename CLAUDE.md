@@ -24,8 +24,30 @@ NER (GLiNER) → ER (unir aliases) → RE `given_entities` (id15, flash-lite) �
 - ③ RE 🔄 **muestra 200** (581 rel) + **test gold**: detección f0.5 0.892 (undirected), labeling +act_type 0.743. **Prod = Batch API** (subagentes no escalan: 80k ≈ 29 días).
 - ④ Graph ✅ **poblado**: `graph.duckdb` vía `scripts/build_graph.py` — 80k articles, 79.643 nodos, 88.230 aliases, 909.811 mentions, 562 edges. Red signada queryable (Piñera deg 77 +24/−39). Aristas solo de la muestra 200 (RE de prod pendiente).
 
-## Pendiente de calidad (curación)
-- Dato sucio del proto-gazetteer: un nodo "Congreso" quedó con canonical "Senado". Lo corrige la **curación Sonnet del top-grado** (`degree` pre-computado en `nodes`). El gazetteer de aliases rico aún usa el proto de 60 art sintéticos → enriquecer con menciones reales.
+## Post-proceso del grafo (flujo de curación, 2026-06-20)
+Tras poblar `edges`, el grafo se cura EN CAPAS: determinista primero (barato, sin riesgo),
+LLM (Sonnet) solo el grey-zone semántico. Reproducible para re-correr al escalar a 402k.
+
+1. **Edges** — `scripts/load_gemini_edges.py`: RE (`re_gemini/relations_gemini.parquet`) →
+   `edges`, linkeo por `surface_norm` del ER (96% resuelto; precision-first: ambas entidades
+   deben resolver). Filtra `co_occurs` (sin polaridad) y polaridad nula. Las vistas
+   `node_signed_degree` / `edges_by_period` se recalculan solas. [80k: 599k rel → 435k aristas.]
+2. **Capa 1 — determinista** — `scripts/curate_propose.py` (PREVIEW, no toca DB): merges por
+   (a) canónico exacto normalizado, (b) dict de siglas (`SIGLAS`: UDI↔Unión Demócrata Indep.,
+   FA↔Frente Amplio…), (c) alias distintivo compartido (≥2 tokens, mismo tipo). Escribe
+   `curation/deterministic_merges.json`; `--apply` lo copia a `curations.json`.
+   [2026-06-20: 51 grupos, 101 nodos absorbidos — Boric ×4, Senado ×4, Hacienda ×8, 7 siglas.]
+3. **Capa 2 — candidatos para Sonnet** (PENDIENTE): pares top-grado con `token_sort_ratio≥85`
+   + mismo tipo (cross-type bloqueado) que NO resolvió la capa 1 → grey-zone para adjudicar.
+4. **Capa 3 — Sonnet** — `workflows/sonnet_curate.workflow.js`: adjudica el grey-zone
+   (Gobierno/Ejecutivo/Estado, "PC de China" mal etiquetado) → `curations.json`. Precision-first:
+   ante la duda NO fusiona; nunca cruza tipos.
+5. **Capa 4 — apply** — `scripts/curate_apply.py`: aplica merges/updates determinísticamente
+   (maneja UNIQUE en aliases/edges, guarda anti-sobrefusión: bloquea 2 canonicals largos con
+   `token_sort_ratio<60`). Recomputa `n_mentions` y `degree`.
+
+Dato sucio histórico (lo resuelve el flujo): "Congreso" con canonical "Senado"; "Partido
+Comunista de China" deg 5.990 = casi seguro el PC **de Chile** → capa 3.
 
 ## NER decisión (F3, 2026-06-18)
 GLiNER local (`urchade/gliner_multi-v2.1`, threshold 0.4) para el volumen ($0, determinista). Haiku NO para el full (solo zona gris). spaCy descartado (no distingue party/coalition/movement). Eval: `scripts/eval_ner_gliner_vs_haiku.py`.
