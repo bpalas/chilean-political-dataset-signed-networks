@@ -260,6 +260,10 @@ _POLITICAL_LEXICON: list[str] = [
     # términos de clivaje político
     "estallido social", "18 de octubre", "reforma tributaria",
     "reforma de pensiones", "apruebo", "rechazo",
+    # segundo ciclo constitucional + actores institucionales 2023-2026
+    "consejo constitucional", "comisión experta", "consejero constitucional",
+    "consejera constitucional", "anteproyecto constitucional", "partido de la gente",
+    "partido republicano", "amarillos por chile", "servel", "ministerio de seguridad pública",
 ]
 
 
