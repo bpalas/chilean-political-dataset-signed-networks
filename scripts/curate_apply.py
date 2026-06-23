@@ -90,9 +90,13 @@ def main() -> None:
                     [absorbed, surv])
         con.execute("DELETE FROM nodes WHERE node_id=?", [absorbed])
 
-    # 6. recomputar degree
-    con.execute("""UPDATE nodes SET degree=(SELECT count(*) FROM edges x
-                   WHERE x.from_node_id=nodes.node_id OR x.to_node_id=nodes.node_id)""")
+    # 6. recomputar degree (rápido: agregación UNION ALL + UPDATE FROM, no join OR)
+    con.execute("""CREATE OR REPLACE TEMP TABLE _deg AS
+                   SELECT nid, count(*) c FROM (
+                     SELECT from_node_id nid FROM edges UNION ALL SELECT to_node_id FROM edges
+                   ) GROUP BY nid""")
+    con.execute("UPDATE nodes SET degree=0")
+    con.execute("UPDATE nodes SET degree=_deg.c FROM _deg WHERE nodes.node_id=_deg.nid")
 
     n_nodes = con.execute("SELECT count(*) FROM nodes").fetchone()[0]
     n_cur = con.execute("SELECT count(*) FROM nodes WHERE curated").fetchone()[0]
