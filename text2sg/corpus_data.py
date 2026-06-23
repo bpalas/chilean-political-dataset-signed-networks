@@ -264,6 +264,9 @@ _POLITICAL_LEXICON: list[str] = [
     "consejo constitucional", "comisión experta", "consejero constitucional",
     "consejera constitucional", "anteproyecto constitucional", "partido de la gente",
     "partido republicano", "amarillos por chile", "servel", "ministerio de seguridad pública",
+    # era 2014-2018 (Bachelet II / Piñera II): coaliciones y procesos del período
+    "nueva mayoría", "concertación", "reforma educacional", "gratuidad",
+    "asamblea constituyente", "proceso constituyente",
 ]
 
 
