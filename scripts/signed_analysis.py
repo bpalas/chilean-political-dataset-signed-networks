@@ -59,7 +59,7 @@ def main() -> None:
         print(f"✓ columna `sign` = polaridad numérica. Distribución: {dist}\n")
 
     where = f"WHERE period = '{args.period}'" if args.period else ""
-    scope = f"período {args.period}" if args.period else "toda la ventana (2019-2022)"
+    scope = f"período {args.period}" if args.period else "toda la ventana (2014-2026)"
     print(f"=== ANÁLISIS SIGNADO — {scope} ===")
     print("    (nodos de rol como 'Gobierno' se excluyen del clustering por conflación temporal)\n")
 
