@@ -37,13 +37,25 @@ JSONL = GEN / "input.jsonl"
 ACTOR_TYPES = {"person", "party", "institution", "coalition", "movement", "org"}
 
 
-def prepare(limit: int | None, genome_path: str | None = None) -> None:
+def _bodies(samples: list[str]) -> dict:
+    """Une los bodies de varias muestras (article_id → body)."""
+    body_of: dict = {}
+    for s in samples:
+        sd = pd.read_parquet(D / f"samples/{s}.parquet", columns=["article_id", "body"])
+        body_of.update(dict(zip(sd.article_id, sd.body)))
+    return body_of
+
+
+def prepare(limit: int | None, genome_path: str | None = None,
+            samples: list[str] | None = None, resolution: str | None = None) -> None:
     GEN.mkdir(parents=True, exist_ok=True)
-    res = json.loads((D / "er/resolution_80k.json").read_text(encoding="utf-8"))
+    samples = samples or ["political_2019_2022_80k"]
+    res_path = Path(resolution) if resolution else (D / "er/resolution_80k.json")
+    res = json.loads(res_path.read_text(encoding="utf-8"))
     assign = res["assign"]
     canon = {n["node_id"]: n["canonical"] for n in res["nodes"]}
-    samp = pd.read_parquet(D / "samples/political_2019_2022_80k.parquet", columns=["article_id", "body"])
-    body_of = dict(zip(samp.article_id, samp.body))
+    body_of = _bodies(samples)
+    print(f"muestras: {samples} | resolución: {res_path.name} | {len(body_of):,} artículos", flush=True)
 
     items, n_skip = [], 0
     for s in glob.glob(str(D / "ner/gliner/year=*/part-*.parquet")):
@@ -101,12 +113,12 @@ def do_poll(name: str | None) -> None:
     print(f"{name}: {poll(make_client(), name)}")
 
 
-def do_fetch(name: str | None) -> None:
+def do_fetch(name: str | None, samples: list[str] | None = None, out: str | None = None) -> None:
     name = name or (GEN / "batch_name.txt").read_text(encoding="utf-8").strip()
     cl = make_client()
     raw = fetch(cl, name)
-    samp = pd.read_parquet(D / "samples/political_2019_2022_80k.parquet", columns=["article_id", "body"])
-    body_of = dict(zip(samp.article_id, samp.body))
+    body_of = _bodies(samples or ["political_2019_2022_80k"])
+    out_path = Path(out) if out else (GEN / "relations_gemini.parquet")
     rows, kept, dropped = [], 0, 0
     for aid, text in raw.items():
         try:
@@ -122,8 +134,8 @@ def do_fetch(name: str | None) -> None:
                 kept += 1
             else:
                 dropped += 1
-    pd.DataFrame(rows).to_parquet(GEN / "relations_gemini.parquet", index=False)
-    print(f"fetch: {kept:,} relaciones (gate evidencia) | descartadas {dropped:,} → {GEN/'relations_gemini.parquet'}")
+    pd.DataFrame(rows).to_parquet(out_path, index=False)
+    print(f"fetch: {kept:,} relaciones (gate evidencia) | descartadas {dropped:,} → {out_path}")
 
 
 def main() -> None:
@@ -133,14 +145,19 @@ def main() -> None:
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("prepare"); p.add_argument("--limit", type=int, default=None)
     p.add_argument("--genome", default=None, help="ruta a genoma (ej. text2sg/prompts/gemini_champion_v2.json)")
+    p.add_argument("--samples", nargs="+", default=None, help="muestras a incluir (sin .parquet)")
+    p.add_argument("--resolution", default=None, help="ruta a resolution.json del ER")
     s = sub.add_parser("submit"); s.add_argument("--model", default=None, help="override (ej. gemini-2.5-flash-lite)")
     s.add_argument("--genome", default=None, help="ruta a genoma (el model sale del genoma si no hay --model)")
     pl = sub.add_parser("poll"); pl.add_argument("--name", default=None)
     fe = sub.add_parser("fetch"); fe.add_argument("--name", default=None)
+    fe.add_argument("--samples", nargs="+", default=None, help="muestras (para el gate de evidencia)")
+    fe.add_argument("--out", default=None, help="parquet de salida")
     args = ap.parse_args()
-    {"prepare": lambda: prepare(args.limit, args.genome),
+    {"prepare": lambda: prepare(args.limit, args.genome, args.samples, args.resolution),
      "submit": lambda: do_submit(args.model, args.genome),
-     "poll": lambda: do_poll(args.name), "fetch": lambda: do_fetch(args.name)}[args.cmd]()
+     "poll": lambda: do_poll(args.name),
+     "fetch": lambda: do_fetch(args.name, args.samples, args.out)}[args.cmd]()
 
 
 if __name__ == "__main__":
