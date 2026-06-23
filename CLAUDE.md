@@ -75,6 +75,25 @@ Comunista de China" deg 5.990 = casi seguro el PC **de Chile** → capa 3.
   `period` / vista `edges_by_period`) o dividir esos nodos por administración. Actores estables
   (personas, partidos) agregan bien sobre toda la ventana (Kast↔Boric: − en todos los años).
 
+## Ventana ampliada 2014-2026 (2026-06-23)
+Extendido de 2019-2022 a **toda la ventana 2014-2026** (3 gobiernos: Bachelet II, Piñera II,
+Boric), por submuestras de 80k por período (`build_political_sample.py --year-range`).
+- **NER**: 3×80k = 240k art (GLiNER fp16, $0). **RE**: ~1.76M relaciones (Gemini flash-lite
+  batch, ~$13 los 160k nuevos). `run_re_gemini.py` + `er_scale.py` parametrizados (--samples,
+  --resolution) para muestras arbitrarias.
+- **Grafo unificado**: `build_graph.py --resolution er/resolution_union.json --samples … --no-edges`
+  + `load_gemini_edges.py --relations <vieja> <nueva>` → 254k nodos, 1.23M aristas signadas.
+- **Normalización por FAN-OUT de subagentes** (`scripts/curate_candidates.py --top 600` →
+  Workflow de 6 jueces Sonnet en paralelo, cada uno adjudica 100 nodos viendo los 600 de
+  contexto): 337 curaciones (53 merges, 248 fixes, 36 genéricos). Respetó precision-first
+  (0 merges Paris≠Parisi). Cubre top-600 vs top-150 de un agente solo. Flujo: Capa 1 (141) →
+  fan-out (337) → re-Capa 1 (dedup).
+- **Validación** (89% balance): 6 bloques reproducen el espectro completo y su EVOLUCIÓN —
+  Nueva Mayoría (Bachelet) → Apruebo Dignidad (Boric), y la fragmentación derecha tradicional
+  (Chile Vamos) vs republicanos (Kast/Kaiser). Foráneos clusterizan por ideología (Maduro/Evo
+  con izquierda; Trump/Bolsonaro/Milei con republicanos).
+- `materialize_signed_degree.py`: node_signed_degree como TABLA (la vista se cuelga a >1M aristas).
+
 ## NER decisión (F3, 2026-06-18)
 GLiNER local (`urchade/gliner_multi-v2.1`, threshold 0.4) para el volumen ($0, determinista). Haiku NO para el full (solo zona gris). spaCy descartado (no distingue party/coalition/movement). Eval: `scripts/eval_ner_gliner_vs_haiku.py`.
 
