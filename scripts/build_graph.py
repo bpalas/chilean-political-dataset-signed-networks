@@ -26,8 +26,15 @@ D = ROOT / "data/processed"
 def main() -> None:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--resolution", default=str(D / "er/resolution_80k.json"))
+    ap.add_argument("--samples", nargs="+", default=["political_2019_2022_80k"])
+    ap.add_argument("--no-edges", action="store_true",
+                    help="no cargar edges acá (se cargan con load_gemini_edges)")
+    args = ap.parse_args()
 
-    res = json.loads((D / "er/resolution_80k.json").read_text(encoding="utf-8"))
+    res = json.loads(Path(args.resolution).read_text(encoding="utf-8"))
     nodes = res["nodes"]
     assign = res["assign"]                       # surface(raw) → node_id
     norm2node: dict[str, str] = {}               # norm(alias) → node_id (para relaciones)
@@ -44,9 +51,11 @@ def main() -> None:
       ('re-haikuGE','re','claude-haiku-4-5','haiku_ge_best','haiku_ge_best','{"group":5}',200,'RE muestra'),
       ('er-v1','er',NULL,NULL,NULL,'{"fuzzy_cutoff":90,"blocking":"token"}',96990,'ER blocking')""")
 
-    # articles (muestra 80k, con body)
-    samp = pd.read_parquet(D / "samples/political_2019_2022_80k.parquet",
-                           columns=["article_id", "title", "body", "source", "publish_date", "year"])
+    # articles (unión de muestras, con body)
+    samp = pd.concat(
+        [pd.read_parquet(D / f"samples/{s}.parquet",
+                         columns=["article_id", "title", "body", "source", "publish_date", "year"])
+         for s in args.samples], ignore_index=True).drop_duplicates("article_id").reset_index(drop=True)
     samp["publish_date"] = pd.to_datetime(samp["publish_date"], errors="coerce")
     samp["period"] = samp.apply(
         lambda r: (f"{int(r['year'])}-H{1 if pd.notna(r['publish_date']) and r['publish_date'].month <= 6 else 2}"
@@ -98,6 +107,9 @@ def main() -> None:
     print(f"  mentions: {len(mdf):,}", flush=True)
 
     # edges (RE muestra → node_id)
+    if args.no_edges:
+        print("  (edges se cargan con load_gemini_edges) ✓ base poblada.", flush=True)
+        return
     rel = pd.read_parquet(D / "re/relations.parquet")
     erows = []
     for r in rel.itertuples():

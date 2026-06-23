@@ -32,7 +32,9 @@ def main() -> None:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser()
-    ap.add_argument("--relations", default=str(D / "re_gemini/relations_gemini.parquet"))
+    ap.add_argument("--relations", nargs="+",
+                    default=[str(D / "re_gemini/relations_gemini.parquet")],
+                    help="una o más parquets de relaciones (se concatenan)")
     ap.add_argument("--keep-all", action="store_true", help="no filtrar act_types (incluye co_occurs)")
     args = ap.parse_args()
 
@@ -60,7 +62,7 @@ def main() -> None:
     arts = set(pub)
 
     # 2. relaciones
-    rel = pd.read_parquet(args.relations)
+    rel = pd.concat([pd.read_parquet(r) for r in args.relations], ignore_index=True)
     n_in = len(rel)
     if not args.keep_all:
         rel = rel[~rel["act_type"].isin(DROP_TYPES)]
@@ -85,6 +87,9 @@ def main() -> None:
             continue
         if r.polarity not in ("positive", "negative", "neutral"):
             unresolved += 1  # sin polaridad válida → inútil en red signada
+            continue
+        if not isinstance(r.act_type, str) or not r.act_type:
+            unresolved += 1  # act_type nulo
             continue
         pdate = pub.get(r.article_id)
         period = str(pdate.year) if pdate is not None else None
