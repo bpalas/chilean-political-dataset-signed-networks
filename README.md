@@ -1,203 +1,118 @@
-# Chilean Political Dataset: Signed Networks
+# Chilean Political Signed Networks (2014–2026)
 
-[![License: CC-BY-NC-4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
-![Version](https://img.shields.io/badge/version-2.0-blue)
+[![HF Dataset: Signed Network](https://img.shields.io/badge/🤗%20Dataset-Signed%20Network-yellow)](https://huggingface.co/datasets/bpalacios/chilean-political-signed-network)
+[![HF Dataset: Gold](https://img.shields.io/badge/🤗%20Dataset-Gold%20Benchmark-yellow)](https://huggingface.co/datasets/bpalacios/text2signed-graph-gold)
+[![HF Collection](https://img.shields.io/badge/🤗%20Collection-text2SG-blue)](https://huggingface.co/collections/bpalacios/chilean-political-signed-networks-6a3c4ed962e91cb05cf4855a)
 ![Status](https://img.shields.io/badge/status-active-brightgreen)
 
-**2.1M Spanish-language news articles (2013–2024) with 914 hand-annotated political relations, enabling longitudinal analysis of Chilean elite networks over 25 semi-annual snapshots.**
+**A signed directed network of Chilean political actors (2014–2026), extracted at scale from
+~480k news articles spanning three governments. Each edge is a polarized political act —
+`actor_u → act_type → actor_v` with a sign (+1 ally / −1 antagonist / 0 neutral).**
+
+`480,002 articles · 442k actor nodes · 2.54M signed edges · 3 governments · 92% structural balance`
 
 ---
 
-## Overview
+## Resources
 
-This dataset captures political relations in Chile across 11 years by extracting signed graphs (endorses, attacks, allies_with, …) from news coverage. It enables research into:
+| | Where | Notes |
+|---|---|---|
+| 🤗 **Signed network** (public) | [`chilean-political-signed-network`](https://huggingface.co/datasets/bpalacios/chilean-political-signed-network) | the graph: nodes + signed edges + metadata. **No article text** (copyright-safe). |
+| 🤗 **Gold benchmark** (public) | [`text2signed-graph-gold`](https://huggingface.co/datasets/bpalacios/text2signed-graph-gold) | 287 synthetic articles · 914 gold signed relations. |
+| 🤗 **Collection** | [text2SG](https://huggingface.co/collections/bpalacios/chilean-political-signed-networks-6a3c4ed962e91cb05cf4855a) | both datasets grouped. |
+| ⚙️ **Extractor engine** | [`text2graph-evolve`](https://github.com/bpalas/text2graph-evolve) | evolutionary optimization of the extraction prompts. |
 
-- **Temporal polarization dynamics** — How does elite alignment/opposition evolve?
-- **Structural realignment** — When do coalitions break? (detected: 2015–2016)
-- **Community detection at scale** — Benchmark for signed graph partitioning
-- **Multilingual NLP** — Spanish-language extraction, applicable to other countries
+> The news corpus is copyrighted (CC-BY-NC). The public dataset ships only the **extracted
+> graph + `article_id`** (= `md5(body)`), so corpus holders can join back — no article text.
 
-### Key Statistics
+---
+
+## What it captures
+
+A longitudinal map of who-relates-to-whom in Chilean politics across **three administrations**
+(Bachelet II → Piñera II → Boric) and **two constitutional processes** (2020, 2023). Enables:
+
+- **Polarization dynamics** — how elite alignment/antagonism evolves over 12 years.
+- **Coalition structure & realignment** — Nueva Mayoría → Apruebo Dignidad; the right's split
+  into Chile Vamos vs the republican right (Kast/Kaiser).
+- **Signed-graph analysis** — community detection and structural balance at scale.
+
+### Key statistics
 
 | Metric | Value |
 |---|---|
-| **Time period** | 2013–2024 (11 years, 22 semesters) |
-| **Total articles** | 2,100,000+ |
-| **Unique political actors** | ~500 (politicians, parties, ministers) |
-| **Gold standard relations** | 914 (hand-annotated, high quality) |
-| **Relation types** | 9 (endorses, attacks, allies_with, calls_on, distances_from, questions, negotiates_with, competes_with, accuses) |
-| **Languages** | Spanish (Chilean news outlets) |
-| **Format** | Parquet (processed), CSV (raw) |
+| Window | 2014–2026 (3 governments) |
+| Articles (proportional sample of ~1M political) | 480,002 |
+| Actor nodes (connected) | 239,684 |
+| Signed edges | 2,539,835 |
+| Polarity | 42% negative · 30% positive · 28% neutral |
+| Node types | person · party · institution · coalition · movement · org |
 
 ---
 
-## Quick Start
+## How it was built — the text2SG pipeline
 
-### Installation
+Three passes, **precision-first** (a false edge pollutes the graph; a missed one only omits):
 
-```bash
-git clone https://github.com/bpalas/chilean-political-dataset-signed-networks
-cd chilean-political-dataset-signed-networks
-pip install -r requirements.txt
-```
+1. **NER** — `GLiNER` (zero-shot, local, fp16) tags typed political mentions. $0, deterministic.
+2. **Entity resolution** — token-blocked fuzzy clustering (cross-type + surname guards),
+   then curated: a deterministic layer (exact name + acronym dictionary `UDI ↔ Unión Demócrata
+   Independiente`) followed by a **fan-out of 6 parallel LLM judges** (Sonnet) that resolve the
+   semantic grey zone (`Ejecutivo`/`La Moneda` → `Gobierno de Chile`) — never merging distinct
+   people, never crossing types.
+3. **Relation extraction** — a tuned `gemini-2.5-flash-lite` extractor, given the resolved
+   actors and abstaining without evidence, emits `(actor_u → act_type → actor_v, polarity)`.
+   **f0.5 ≈ 0.92** against the gold benchmark. The edge **sign is the extracted polarity**.
 
-### Download & Validate
+## How it was validated — community detection + structural balance
 
-```bash
-# Download processed dataset (Parquet)
-python scripts/download.py
+Validated on **aggregate structure**, not edge-by-edge:
 
-# Validate integrity (checksums, schema)
-python scripts/validate.py
+- **Community detection** (Louvain on the ally subgraph) reproduces the real coalitions and
+  their evolution across 12 years, including the right's fragmentation; foreign actors cluster
+  by ideology (Lula/Evo/Maduro with the left; Trump/Bolsonaro/Milei with the republican right).
+- **Structural balance** — **92% of negative edge weight falls between communities** (enemies
+  separated), consistent with balance theory → the signed structure is reliable.
 
-# Print dataset statistics
-python scripts/stats.py
-```
+> ⚠️ **Temporal role nodes** (`Gobierno de Chile`, `Oposición`, `Presidente`) change referent
+> at each change of government — analyze their dyads **per period**, not aggregated.
 
-### Load in Python
+---
+
+## Quick start
 
 ```python
-import pandas as pd
-
-# Load articles
-articles = pd.read_parquet("data/processed/articles_v2.parquet")
-print(f"Loaded {len(articles)} articles")
-
-# Load gold standard relations
-gold = pd.read_parquet("data/gold/gold_relations_v2.parquet")
-print(f"{len(gold)} annotated relations")
-
-# Load train/val/test split
-import json
-splits = json.load(open("data/gold/splits.json"))
-print(f"Train: {len(splits['train'])}, Val: {len(splits['val'])}, Test: {len(splits['test'])}")
+import duckdb
+con = duckdb.connect()
+# top antagonists, straight from the public dataset on HF (needs httpf + token-free for public)
+con.execute("SET hf_token=''")
+print(con.execute("""
+  SELECT canonical, degree, pos_degree, neg_degree
+  FROM 'hf://datasets/bpalacios/chilean-political-signed-network/nodes.parquet'
+  ORDER BY degree DESC LIMIT 10""").df())
 ```
 
----
+## Lineage
 
-## Dataset Composition
+**gold benchmark → evolve the extractor → apply at scale**
 
-### Data Tiers
-
-| Tier | Size | Format | License | Access |
-|---|---|---|---|---|
-| **Raw articles** | 2.1M | CSV | CC-BY-NC-4.0 | Public (S3) |
-| **Processed (v2)** | ~500MB | Parquet | CC-BY-NC-4.0 | Public (S3) |
-| **Gold relations** | 914 | Parquet | CC-BY-NC-4.0 | Public (repo) |
-| **Weak labels** | ~18% coverage | JSON | CC-BY-NC-4.0 | Public (repo) |
-
-### Temporal Coverage
-
-```
-2013-H1 ──┬── 2013-H2 ──┬── ... ──┬── 2024-H1
-          │             │         │
-      Semester 1     Semester 2   Semester 22 (latest)
-
-Each snapshot: nNodes ≈ 100–250, nEdges ≈ 500–2000
-```
+1. [`text2signed-graph-gold`](https://huggingface.co/datasets/bpalacios/text2signed-graph-gold) — the synthetic gold standard.
+2. [`text2graph-evolve`](https://github.com/bpalas/text2graph-evolve) — evolves the champion extractor against the gold (precision-first, f0.5 fitness).
+3. **this repo** — runs the champion on 480k real articles → the signed network.
 
 ---
 
-## Documentation
+## License & citation
 
-| Document | Purpose |
-|---|---|
-| **[DATASET.md](docs/DATASET.md)** | Comprehensive statistics, sources, coverage analysis |
-| **[SCHEMA.md](docs/SCHEMA.md)** | Relation format, field descriptions, examples |
-| **[DATA_COLLECTION.md](docs/DATA_COLLECTION.md)** | How it was built, preprocessing pipeline, reproducibility |
-| **[QUALITY.md](docs/QUALITY.md)** | Inter-rater agreement, known gaps, limitations, audit findings |
-| **[PAPER.md](docs/PAPER.md)** | Full academic paper (dataset contribution) |
-
----
-
-## Benchmark: Baseline Results
-
-Evaluated on the gold standard (914 relations) using three extraction frameworks:
-
-| System | Precision | Recall | F0.5 |
-|---|---|---|---|
-| BERT baseline | 0.65 | 0.58 | 0.63 |
-| text2sg (SOTA) | 0.928 | 0.901 | 0.922 |
-| Human agreement (κ) | 0.82 | — | — |
-
-→ **Provides a realistic difficulty level**: not too easy (baseline at 0.63), not impossible (humans at κ=0.82).
-
----
-
-## Citation
-
-If you use this dataset, please cite:
+- **Code**: MIT · **Public graph dataset**: CC-BY-4.0 (no news text) · **Source corpus**: CC-BY-NC-4.0.
 
 ```bibtex
-@dataset{palacios2024chilean,
-  author  = {Palacios, Benjamin},
-  title   = {Chilean Political Dataset: Signed Networks (2013–2024)},
-  year    = {2024},
-  version = {2.0},
-  url     = {https://github.com/bpalas/chilean-political-dataset-signed-networks},
-  doi     = {10.5281/zenodo.XXXXXXX}  # filled after Zenodo upload
+@misc{palacios_chilean_signed_networks,
+  author = {Palacios, Benjamín},
+  title  = {Chilean Political Signed Networks (2014–2026)},
+  year   = {2026},
+  url    = {https://github.com/bpalas/chilean-political-dataset-signed-networks}
 }
 ```
 
-See [CITATION.cff](CITATION.cff) for other formats (BibTeX, RIS, APA).
-
----
-
-## License & Reuse
-
-- **Code** (Python, Rust, Go): [MIT](LICENSE)
-- **Dataset & annotations**: [CC-BY-NC-4.0](https://creativecommons.org/licenses/by-nc/4.0/)
-  - ✅ Use for research, education
-  - ✅ Cite the dataset
-  - ❌ Commercial redistribution without permission
-
-**Raw news articles:** Sourced from publicly available outlets (La Tercera, El Mostrador, Emol, …). Dataset aggregates with attribution preserved.
-
----
-
-## Related Work
-
-This dataset enables benchmarking of:
-
-- **text2sg** ([github.com/bpalas/text2SG](https://github.com/bpalas/text2SG)) — Signed graph extraction from text
-- **clivaje-framework** ([github.com/bpalas/clivaje-framework](https://github.com/bpalas/clivaje-framework)) — Longitudinal network analysis (5-stage pipeline, realignment detection)
-- **clivaje-etl** ([github.com/bpalas/clivaje-etl](https://github.com/bpalas/clivaje-etl)) — Fast preprocessing of 2.1M articles (Rust)
-
----
-
-## Versioning
-
-| Version | Release | Changes |
-|---|---|---|
-| **2.0** | 2024-06 | Full dataset: 2.1M articles, 914 gold relations, 25 snapshots |
-| **1.0** | 2024-03 | Pilot: 93 articles, 150 relations (thesis validation) |
-
-We follow [semantic versioning](https://semver.org/). Minor versions add articles/snapshots; major versions refactor schema or methodology.
-
----
-
-## Contributing
-
-We welcome:
-- 🐛 Bug reports (validation errors, schema issues)
-- 📝 Annotations (if you want to expand gold standard)
-- 🔍 Audits (quality checks, coverage gaps)
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) (forthcoming).
-
----
-
-## Contact & Support
-
-- **Issues**: [GitHub Issues](https://github.com/bpalas/chilean-political-dataset-signed-networks/issues)
-- **Email**: [benja.pala01@gmail.com](mailto:benja.pala01@gmail.com)
-- **Citation questions**: See [CITATION.cff](CITATION.cff)
-
----
-
-## Acknowledgments
-
-- **Annotation team**: [names/institutions]
-- **Data sources**: La Tercera, El Mostrador, Emol, [others]
-- **Funding**: [if applicable]
-- **Inspiration**: Lipset-Rokkan (clivage theory), Bartolini-Mair (temporal dynamics), SNAP datasets (graph benchmarks)
+**Contact:** Benjamín Palacios · [benja.pala01@gmail.com](mailto:benja.pala01@gmail.com)
