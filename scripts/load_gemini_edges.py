@@ -117,18 +117,22 @@ def main() -> None:
          "RE prod 80k batch flash-lite"])
     con.register("edf", edf)
     con.execute(f"INSERT INTO edges SELECT {','.join(['edge_id'] + cols)} FROM edf")
-    con.execute("UPDATE nodes SET degree=(SELECT count(*) FROM edges e "
-                "WHERE e.from_node_id=nodes.node_id OR e.to_node_id=nodes.node_id)")
+    # degree rápido (UNION ALL + UPDATE FROM, no join OR que se cuelga a >1M aristas)
+    con.execute("""CREATE OR REPLACE TEMP TABLE _deg AS
+                   SELECT nid, count(*) c FROM (
+                     SELECT from_node_id nid FROM edges UNION ALL SELECT to_node_id FROM edges
+                   ) GROUP BY nid""")
+    con.execute("UPDATE nodes SET degree=0")
+    con.execute("UPDATE nodes SET degree=_deg.c FROM _deg WHERE nodes.node_id=_deg.nid")
     con.execute("COMMIT")
     print(f"\n✓ edges: {len(edf):,} cargadas (run {RUN_ID}). Vistas signed_degree/by_period recalculadas.", flush=True)
 
-    # 5. sanity: top actores por grado signado
-    print("\n=== top 10 grado signado (node_signed_degree) ===", flush=True)
+    # 5. sanity: top actores por grado materializado (rápido; la vista signed se cuelga a escala)
+    print("\n=== top 10 por grado (nodes.degree) ===", flush=True)
     rows = con.execute(
-        "SELECT canonical, pos_degree, neg_degree, degree FROM node_signed_degree "
-        "ORDER BY degree DESC LIMIT 10").fetchall()
-    for canon, pos, neg, deg in rows:
-        print(f"  {canon[:34]:34s} deg {deg:>6}  +{pos} / -{neg}", flush=True)
+        "SELECT canonical, node_type, degree FROM nodes ORDER BY degree DESC LIMIT 10").fetchall()
+    for canon, typ, deg in rows:
+        print(f"  {canon[:34]:34s} [{typ[:6]}] deg {deg:>7}", flush=True)
     con.close()
 
 
