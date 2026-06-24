@@ -75,9 +75,17 @@ Comunista de China" deg 5.990 = casi seguro el PC **de Chile** → capa 3.
   `period` / vista `edges_by_period`) o dividir esos nodos por administración. Actores estables
   (personas, partidos) agregan bien sobre toda la ventana (Kast↔Boric: − en todos los años).
 
-## Ventana ampliada 2014-2026 (2026-06-23)
+## Ventana ampliada 2014-2026 (2026-06-23/24)
 Extendido de 2019-2022 a **toda la ventana 2014-2026** (3 gobiernos: Bachelet II, Piñera II,
-Boric), por submuestras de 80k por período (`build_political_sample.py --year-range`).
+Boric). **Escalado en 2 fases: 240k (3×80k por período) → 480k** vía top-up proporcional.
+- **Saturación** (`saturation.py`): la ESTRUCTURA satura al 25% (corr 0.95), pero la COBERTURA
+  de díadas robustas crece LINEAL → doblar suma actores-persona con señal, no cambia el clivaje.
+- **Top-up proporcional** (`build_topup_sample.py`): por año, excluye los ya muestreados y toma
+  los faltan[año] proporcionales al volumen político (medido `measure_political_volume.py`: ~1M
+  político 2014-2026). 251k nuevos → corrige el sub-muestreo de 2019-2021 (estallido).
+- **Final 480k**: 442k nodos, **2.54M aristas signadas**. NER fp16 ($0), RE Gemini flash-lite
+  batch (JSONL >2GB → partir en N con `submit_split.py`/`fetch_topup.py`, ~$20 los 251k).
+  Balance 92% (subió de 89% con el doble de datos). 7 bloques reproducen el espectro + foráneos.
 - **NER**: 3×80k = 240k art (GLiNER fp16, $0). **RE**: ~1.76M relaciones (Gemini flash-lite
   batch, ~$13 los 160k nuevos). `run_re_gemini.py` + `er_scale.py` parametrizados (--samples,
   --resolution) para muestras arbitrarias.
